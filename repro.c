@@ -1,9 +1,11 @@
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <stdio.h>
 
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
+int count = 0;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     SDL_SetAppMetadata("Example Renderer Clear", "1.0", "com.example.renderer-clear");
@@ -13,7 +15,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
         return SDL_APP_FAILURE;
     }
 
-    if (!SDL_CreateWindowAndRenderer("examples/renderer/clear", 640, 480, SDL_WINDOW_VULKAN, &window, &renderer)) {
+    if (!SDL_CreateWindowAndRenderer("examples/renderer/clear", 640, 480, 0, &window, &renderer)) {
         SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
@@ -22,6 +24,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
         SDL_Log("Couldn't make window resizable: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
+
+    // comment out this line to reproduce jittering on window resize:
+    SDL_SetHint(SDL_HINT_MAIN_CALLBACK_RATE, "waitevent");
 
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
@@ -36,6 +41,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
+    fprintf(stderr, ">> %d\n", count++);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
