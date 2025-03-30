@@ -52,6 +52,9 @@ fn appEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) callconv(.c) c.SDL_AppR
 fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     _ = appstate;
 
+    assert(c.SDL_SetRenderDrawColor(renderer, 100, 0, 0, c.SDL_ALPHA_OPAQUE));
+    assert(c.SDL_RenderClear(renderer));
+
     var window_w: c_int = undefined;
     var window_h: c_int = undefined;
     assert(c.SDL_GetWindowSize(window, &window_w, &window_h));
@@ -60,7 +63,7 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
         .{ std.time.milliTimestamp(), window_w, window_h },
     );
 
-    assert(c.SDL_SetRenderDrawColor(renderer, 64, 64, 255, 255));
+    assert(c.SDL_SetRenderDrawColor(renderer, 0, 0, 100, 255));
     assert(c.SDL_RenderFillRect(renderer, &c.SDL_FRect{
         .h = 100,
         .w = 100,
