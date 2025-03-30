@@ -32,6 +32,7 @@ fn appInit(appstate: ?*?*anyopaque, argc: c_int, argv: ?[*:null]?[*:0]u8) callco
     _ = c.SDL_SetAppMetadata("Example HUMAN READABLE NAME", "1.0", "com.example.CATEGORY-NAME");
 
     assert(c.SDL_Init(c.SDL_INIT_VIDEO));
+    assert(c.SDL_SetHint(c.SDL_HINT_MAIN_CALLBACK_RATE, "waitevent"));
     assert(c.SDL_CreateWindowAndRenderer("examples/CATEGORY/NAME", 640, 480, 0, &window, &renderer));
     assert(c.SDL_SetWindowResizable(window, true));
     return c.SDL_APP_CONTINUE; // carry on with the program!
@@ -68,7 +69,6 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     }));
     assert(c.SDL_RenderPresent(renderer));
 
-    assert(c.SDL_WaitEvent(null));
     return c.SDL_APP_CONTINUE; // carry on with the program!
 }
 
