@@ -69,11 +69,19 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     const child0 = c.YGNodeNew();
     c.YGNodeStyleSetFlexGrow(child0, 1.0);
     c.YGNodeStyleSetMargin(child0, c.YGEdgeRight, 10.0);
-    c.YGNodeInsertChild(root, child0, 0.0);
+    c.YGNodeInsertChild(root, child0, 0);
 
     const child1 = c.YGNodeNew();
     c.YGNodeStyleSetFlexGrow(child1, 1.0);
-    c.YGNodeInsertChild(root, child1, 1.0);
+    c.YGNodeInsertChild(root, child1, 1);
+
+    const text1 = c.YGNodeNew();
+    c.YGNodeStyleSetFlexGrow(text1, 1.0);
+    c.YGNodeInsertChild(child1, text1, 0);
+
+    const text2 = c.YGNodeNew();
+    c.YGNodeStyleSetFlexGrow(text2, 1.0);
+    c.YGNodeInsertChild(child1, text2, 1);
 
     c.YGNodeCalculateLayout(root, c.YGUndefined, c.YGUndefined, c.YGDirectionLTR);
 
@@ -97,6 +105,27 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
         .x = c.YGNodeLayoutGetLeft(child1),
         .y = c.YGNodeLayoutGetTop(child1),
     }));
+
+    assert(c.SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255));
+    const text1_x = c.YGNodeLayoutGetLeft(c.YGNodeGetParent(text1)) + c.YGNodeLayoutGetLeft(text1);
+    const text1_y = c.YGNodeLayoutGetTop(c.YGNodeGetParent(text1)) + c.YGNodeLayoutGetTop(text1);
+    var buf: [32]u8 = undefined;
+    assert(c.SDL_RenderDebugText(
+        renderer,
+        text1_x,
+        text1_y,
+        std.fmt.bufPrintZ(&buf, "text1: x={d}, y={d}", .{ text1_x, text1_y }) catch unreachable,
+    ));
+
+    const text2_x = c.YGNodeLayoutGetLeft(c.YGNodeGetParent(text2)) + c.YGNodeLayoutGetLeft(text2);
+    const text2_y = c.YGNodeLayoutGetTop(c.YGNodeGetParent(text2)) + c.YGNodeLayoutGetTop(text2);
+    assert(c.SDL_RenderDebugText(
+        renderer,
+        text2_x,
+        text2_y,
+        std.fmt.bufPrintZ(&buf, "text2: x={d}, y={d}", .{ text2_x, text2_y }) catch unreachable,
+    ));
+
     assert(c.SDL_RenderPresent(renderer));
 
     return c.SDL_APP_CONTINUE; // carry on with the program!
