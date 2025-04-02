@@ -39,8 +39,49 @@ pub fn build(b: *std.Build) void {
         .preferred_link_mode = .dynamic,
     });
     const sdl_lib = sdl_dep.artifact("SDL3");
-
     exe_mod.linkLibrary(sdl_lib);
+
+    const yoga_files = .{
+        "YGConfig.cpp",
+        "YGEnums.cpp",
+        "YGNode.cpp",
+        "YGNodeLayout.cpp",
+        "YGNodeStyle.cpp",
+        "YGPixelGrid.cpp",
+        "YGValue.cpp",
+        "algorithm/AbsoluteLayout.cpp",
+        "algorithm/Baseline.cpp",
+        "algorithm/Cache.cpp",
+        "algorithm/CalculateLayout.cpp",
+        "algorithm/FlexLine.cpp",
+        "algorithm/PixelGrid.cpp",
+        "config/Config.cpp",
+        "debug/AssertFatal.cpp",
+        "debug/Log.cpp",
+        "event/event.cpp",
+        "node/LayoutResults.cpp",
+        "node/Node.cpp",
+    };
+    const yoga_flags = .{
+        "--std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    };
+    const yoga_dep = b.dependency("yoga", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.addCSourceFiles(.{
+        .root = yoga_dep.path("yoga"),
+        .files = &yoga_files,
+        .flags = &yoga_flags,
+    });
+    exe.installHeadersDirectory(yoga_dep.path("yoga"), "yoga", .{
+        .include_extensions = &.{".h"},
+    });
+    exe.linkLibCpp();
+    exe.addIncludePath(yoga_dep.path(""));
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default

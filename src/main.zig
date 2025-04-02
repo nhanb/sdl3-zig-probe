@@ -7,6 +7,8 @@ const c = @cImport({
     // macro magic, 'SDL_MAIN_HANDLED' should be defined before including 'SDL_main.h'.
     @cDefine("SDL_MAIN_HANDLED", {});
     @cInclude("SDL3/SDL_main.h");
+
+    @cInclude("yoga/Yoga.h");
 });
 
 pub fn main() u8 {
@@ -35,6 +37,7 @@ fn appInit(appstate: ?*?*anyopaque, argc: c_int, argv: ?[*:null]?[*:0]u8) callco
     assert(c.SDL_SetHint(c.SDL_HINT_MAIN_CALLBACK_RATE, "waitevent"));
     assert(c.SDL_CreateWindowAndRenderer("examples/CATEGORY/NAME", 640, 480, 0, &window, &renderer));
     assert(c.SDL_SetWindowResizable(window, true));
+
     return c.SDL_APP_CONTINUE; // carry on with the program!
 }
 
@@ -52,23 +55,47 @@ fn appEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) callconv(.c) c.SDL_AppR
 fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     _ = appstate;
 
-    assert(c.SDL_SetRenderDrawColor(renderer, 100, 0, 0, c.SDL_ALPHA_OPAQUE));
-    assert(c.SDL_RenderClear(renderer));
+    // 1. Calculate layout
 
     var window_w: c_int = undefined;
     var window_h: c_int = undefined;
     assert(c.SDL_GetWindowSize(window, &window_w, &window_h));
-    std.debug.print(
-        ">> {d}: {d}x{d}\n",
-        .{ std.time.milliTimestamp(), window_w, window_h },
-    );
+
+    const root = c.YGNodeNew();
+    c.YGNodeStyleSetFlexDirection(root, c.YGFlexDirectionRow);
+    c.YGNodeStyleSetWidth(root, @floatFromInt(window_w));
+    c.YGNodeStyleSetHeight(root, @floatFromInt(window_h));
+
+    const child0 = c.YGNodeNew();
+    c.YGNodeStyleSetFlexGrow(child0, 1.0);
+    c.YGNodeStyleSetMargin(child0, c.YGEdgeRight, 10.0);
+    c.YGNodeInsertChild(root, child0, 0.0);
+
+    const child1 = c.YGNodeNew();
+    c.YGNodeStyleSetFlexGrow(child1, 1.0);
+    c.YGNodeInsertChild(root, child1, 1.0);
+
+    c.YGNodeCalculateLayout(root, c.YGUndefined, c.YGUndefined, c.YGDirectionLTR);
+
+    // 2. Render
+
+    assert(c.SDL_SetRenderDrawColor(renderer, 100, 0, 0, c.SDL_ALPHA_OPAQUE));
+    assert(c.SDL_RenderClear(renderer));
 
     assert(c.SDL_SetRenderDrawColor(renderer, 0, 0, 100, 255));
     assert(c.SDL_RenderFillRect(renderer, &c.SDL_FRect{
-        .h = 100,
-        .w = 100,
-        .x = @floatFromInt(@divTrunc(window_w, 2) - 100 / 2),
-        .y = @floatFromInt(@divTrunc(window_h, 2) - 100 / 2),
+        .h = c.YGNodeLayoutGetHeight(child0),
+        .w = c.YGNodeLayoutGetWidth(child0),
+        .x = c.YGNodeLayoutGetLeft(child0),
+        .y = c.YGNodeLayoutGetTop(child0),
+    }));
+
+    assert(c.SDL_SetRenderDrawColor(renderer, 0, 100, 0, 255));
+    assert(c.SDL_RenderFillRect(renderer, &c.SDL_FRect{
+        .h = c.YGNodeLayoutGetHeight(child1),
+        .w = c.YGNodeLayoutGetWidth(child1),
+        .x = c.YGNodeLayoutGetLeft(child1),
+        .y = c.YGNodeLayoutGetTop(child1),
     }));
     assert(c.SDL_RenderPresent(renderer));
 
