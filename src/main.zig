@@ -11,6 +11,13 @@ const c = @cImport({
     @cInclude("yoga/Yoga.h");
 });
 
+// We will use this renderer to draw into this window every frame.
+var window: ?*c.SDL_Window = null;
+var renderer: ?*c.SDL_Renderer = null;
+
+var frame_timer: std.time.Timer = undefined;
+const scale = 2;
+
 pub fn main() u8 {
     // For programs that provide their own entry points instead of relying on SDL's main function
     // macro magic, 'SDL_SetMainReady()' should be called before calling 'SDL_Init()'.
@@ -21,10 +28,6 @@ pub fn main() u8 {
 
     return @bitCast(@as(i8, @truncate(status)));
 }
-
-// We will use this renderer to draw into this window every frame.
-var window: ?*c.SDL_Window = null;
-var renderer: ?*c.SDL_Renderer = null;
 
 // This function runs once at startup.
 fn appInit(appstate: ?*?*anyopaque, argc: c_int, argv: ?[*:null]?[*:0]u8) callconv(.c) c.SDL_AppResult {
@@ -37,6 +40,9 @@ fn appInit(appstate: ?*?*anyopaque, argc: c_int, argv: ?[*:null]?[*:0]u8) callco
     assert(c.SDL_SetHint(c.SDL_HINT_MAIN_CALLBACK_RATE, "waitevent"));
     assert(c.SDL_CreateWindowAndRenderer("examples/CATEGORY/NAME", 640, 480, 0, &window, &renderer));
     assert(c.SDL_SetWindowResizable(window, true));
+    assert(c.SDL_SetRenderScale(renderer, scale, scale));
+
+    frame_timer = std.time.Timer.start() catch unreachable;
 
     return c.SDL_APP_CONTINUE; // carry on with the program!
 }
@@ -54,6 +60,9 @@ fn appEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) callconv(.c) c.SDL_AppR
 // This function runs once per frame, and is the heart of the program.
 fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     _ = appstate;
+
+    const frame_time_ns = frame_timer.lap();
+    const fps = 1_000_000_000 / frame_time_ns;
 
     // 1. Calculate layout
 
@@ -92,23 +101,23 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
 
     assert(c.SDL_SetRenderDrawColor(renderer, 0, 0, 100, 255));
     assert(c.SDL_RenderFillRect(renderer, &c.SDL_FRect{
-        .h = c.YGNodeLayoutGetHeight(child0),
-        .w = c.YGNodeLayoutGetWidth(child0),
-        .x = c.YGNodeLayoutGetLeft(child0),
-        .y = c.YGNodeLayoutGetTop(child0),
+        .h = c.YGNodeLayoutGetHeight(child0) / scale,
+        .w = c.YGNodeLayoutGetWidth(child0) / scale,
+        .x = c.YGNodeLayoutGetLeft(child0) / scale,
+        .y = c.YGNodeLayoutGetTop(child0) / scale,
     }));
 
     assert(c.SDL_SetRenderDrawColor(renderer, 0, 100, 0, 255));
     assert(c.SDL_RenderFillRect(renderer, &c.SDL_FRect{
-        .h = c.YGNodeLayoutGetHeight(child1),
-        .w = c.YGNodeLayoutGetWidth(child1),
-        .x = c.YGNodeLayoutGetLeft(child1),
-        .y = c.YGNodeLayoutGetTop(child1),
+        .h = c.YGNodeLayoutGetHeight(child1) / scale,
+        .w = c.YGNodeLayoutGetWidth(child1) / scale,
+        .x = c.YGNodeLayoutGetLeft(child1) / scale,
+        .y = c.YGNodeLayoutGetTop(child1) / scale,
     }));
 
     assert(c.SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255));
-    const text1_x = c.YGNodeLayoutGetLeft(c.YGNodeGetParent(text1)) + c.YGNodeLayoutGetLeft(text1);
-    const text1_y = c.YGNodeLayoutGetTop(c.YGNodeGetParent(text1)) + c.YGNodeLayoutGetTop(text1);
+    const text1_x = (c.YGNodeLayoutGetLeft(c.YGNodeGetParent(text1)) + c.YGNodeLayoutGetLeft(text1)) / scale;
+    const text1_y = (c.YGNodeLayoutGetTop(c.YGNodeGetParent(text1)) + c.YGNodeLayoutGetTop(text1)) / scale;
     var buf: [32]u8 = undefined;
     assert(c.SDL_RenderDebugText(
         renderer,
@@ -117,13 +126,26 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
         std.fmt.bufPrintZ(&buf, "text1: x={d}, y={d}", .{ text1_x, text1_y }) catch unreachable,
     ));
 
-    const text2_x = c.YGNodeLayoutGetLeft(c.YGNodeGetParent(text2)) + c.YGNodeLayoutGetLeft(text2);
-    const text2_y = c.YGNodeLayoutGetTop(c.YGNodeGetParent(text2)) + c.YGNodeLayoutGetTop(text2);
+    const text2_x = (c.YGNodeLayoutGetLeft(c.YGNodeGetParent(text2)) + c.YGNodeLayoutGetLeft(text2)) / scale;
+    const text2_y = (c.YGNodeLayoutGetTop(c.YGNodeGetParent(text2)) + c.YGNodeLayoutGetTop(text2)) / scale;
     assert(c.SDL_RenderDebugText(
         renderer,
         text2_x,
         text2_y,
         std.fmt.bufPrintZ(&buf, "text2: x={d}, y={d}", .{ text2_x, text2_y }) catch unreachable,
+    ));
+
+    assert(c.SDL_RenderDebugText(
+        renderer,
+        0,
+        0,
+        std.fmt.bufPrintZ(&buf, "Frame rate: {d}fps", .{fps}) catch unreachable,
+    ));
+    assert(c.SDL_RenderDebugText(
+        renderer,
+        0,
+        10,
+        std.fmt.bufPrintZ(&buf, "Frame time: {d}us", .{frame_time_ns / 1000}) catch unreachable,
     ));
 
     assert(c.SDL_RenderPresent(renderer));
