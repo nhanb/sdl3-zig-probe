@@ -16,7 +16,7 @@ var window: ?*c.SDL_Window = null;
 var renderer: ?*c.SDL_Renderer = null;
 
 var frame_timer: std.time.Timer = undefined;
-const scale = 2;
+const scale = 1;
 
 pub fn main() u8 {
     // For programs that provide their own entry points instead of relying on SDL's main function
@@ -72,8 +72,8 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
 
     const root = c.YGNodeNew();
     c.YGNodeStyleSetFlexDirection(root, c.YGFlexDirectionRow);
-    c.YGNodeStyleSetWidth(root, @floatFromInt(window_w));
-    c.YGNodeStyleSetHeight(root, @floatFromInt(window_h));
+    c.YGNodeStyleSetWidth(root, @as(f32, @floatFromInt(window_w)) / @as(f32, @floatFromInt(scale)));
+    c.YGNodeStyleSetHeight(root, @as(f32, @floatFromInt(window_h)) / @as(f32, @floatFromInt(scale)));
 
     const child0 = c.YGNodeNew();
     c.YGNodeStyleSetFlexGrow(child0, 1.0);
@@ -101,23 +101,23 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
 
     assert(c.SDL_SetRenderDrawColor(renderer, 0, 0, 100, 255));
     assert(c.SDL_RenderFillRect(renderer, &c.SDL_FRect{
-        .h = c.YGNodeLayoutGetHeight(child0) / scale,
-        .w = c.YGNodeLayoutGetWidth(child0) / scale,
-        .x = c.YGNodeLayoutGetLeft(child0) / scale,
-        .y = c.YGNodeLayoutGetTop(child0) / scale,
+        .h = c.YGNodeLayoutGetHeight(child0),
+        .w = c.YGNodeLayoutGetWidth(child0),
+        .x = c.YGNodeLayoutGetLeft(child0),
+        .y = c.YGNodeLayoutGetTop(child0),
     }));
 
     assert(c.SDL_SetRenderDrawColor(renderer, 0, 100, 0, 255));
     assert(c.SDL_RenderFillRect(renderer, &c.SDL_FRect{
-        .h = c.YGNodeLayoutGetHeight(child1) / scale,
-        .w = c.YGNodeLayoutGetWidth(child1) / scale,
-        .x = c.YGNodeLayoutGetLeft(child1) / scale,
-        .y = c.YGNodeLayoutGetTop(child1) / scale,
+        .h = c.YGNodeLayoutGetHeight(child1),
+        .w = c.YGNodeLayoutGetWidth(child1),
+        .x = c.YGNodeLayoutGetLeft(child1),
+        .y = c.YGNodeLayoutGetTop(child1),
     }));
 
     assert(c.SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255));
-    const text1_x = (c.YGNodeLayoutGetLeft(c.YGNodeGetParent(text1)) + c.YGNodeLayoutGetLeft(text1)) / scale;
-    const text1_y = (c.YGNodeLayoutGetTop(c.YGNodeGetParent(text1)) + c.YGNodeLayoutGetTop(text1)) / scale;
+    const text1_x = (c.YGNodeLayoutGetLeft(c.YGNodeGetParent(text1)) + c.YGNodeLayoutGetLeft(text1));
+    const text1_y = (c.YGNodeLayoutGetTop(c.YGNodeGetParent(text1)) + c.YGNodeLayoutGetTop(text1));
     var buf: [32]u8 = undefined;
     assert(c.SDL_RenderDebugText(
         renderer,
@@ -126,8 +126,8 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
         std.fmt.bufPrintZ(&buf, "text1: x={d}, y={d}", .{ text1_x, text1_y }) catch unreachable,
     ));
 
-    const text2_x = (c.YGNodeLayoutGetLeft(c.YGNodeGetParent(text2)) + c.YGNodeLayoutGetLeft(text2)) / scale;
-    const text2_y = (c.YGNodeLayoutGetTop(c.YGNodeGetParent(text2)) + c.YGNodeLayoutGetTop(text2)) / scale;
+    const text2_x = (c.YGNodeLayoutGetLeft(c.YGNodeGetParent(text2)) + c.YGNodeLayoutGetLeft(text2));
+    const text2_y = (c.YGNodeLayoutGetTop(c.YGNodeGetParent(text2)) + c.YGNodeLayoutGetTop(text2));
     assert(c.SDL_RenderDebugText(
         renderer,
         text2_x,
@@ -146,6 +146,13 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
         0,
         10,
         std.fmt.bufPrintZ(&buf, "Frame time: {d}us", .{frame_time_ns / 1000}) catch unreachable,
+    ));
+
+    assert(c.SDL_RenderDebugText(
+        renderer,
+        0,
+        20,
+        std.fmt.bufPrintZ(&buf, "Window size: {d}x{d}", .{ window_w, window_h }) catch unreachable,
     ));
 
     assert(c.SDL_RenderPresent(renderer));
