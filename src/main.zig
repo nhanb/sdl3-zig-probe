@@ -1,22 +1,29 @@
 const std = @import("std");
 const assert = std.debug.assert;
 const c = @cImport({
+    @cInclude("yoga/Yoga.h");
+
     @cDefine("SDL_DISABLE_OLD_NAMES", {});
     @cInclude("SDL3/SDL.h");
     // For programs that provide their own entry points instead of relying on SDL's main function
     // macro magic, 'SDL_MAIN_HANDLED' should be defined before including 'SDL_main.h'.
     @cDefine("SDL_MAIN_HANDLED", {});
     @cInclude("SDL3/SDL_main.h");
-
-    @cInclude("yoga/Yoga.h");
+    @cInclude("SDL3_ttf/SDL_ttf.h");
 });
+
+const noto_sans = @embedFile("NotoSans-Regular.ttf");
+
+var scale: f32 = undefined;
 
 // We will use this renderer to draw into this window every frame.
 var window: ?*c.SDL_Window = null;
 var renderer: ?*c.SDL_Renderer = null;
+var texture: ?*c.SDL_Texture = null;
+var font: ?*c.TTF_Font = null;
+var surface: ?*c.SDL_Surface = null;
 
 var frame_timer: std.time.Timer = undefined;
-const scale = 1;
 
 pub fn main() u8 {
     // For programs that provide their own entry points instead of relying on SDL's main function
@@ -36,12 +43,28 @@ fn appInit(appstate: ?*?*anyopaque, argc: c_int, argv: ?[*:null]?[*:0]u8) callco
     _ = argv;
     _ = c.SDL_SetAppMetadata("Example HUMAN READABLE NAME", "1.0", "com.example.CATEGORY-NAME");
 
+    // SDL init boilerplate
     assert(c.SDL_Init(c.SDL_INIT_VIDEO));
     assert(c.SDL_SetHint(c.SDL_HINT_MAIN_CALLBACK_RATE, "waitevent"));
-    assert(c.SDL_CreateWindowAndRenderer("examples/CATEGORY/NAME", 640, 480, 0, &window, &renderer));
-    assert(c.SDL_SetWindowResizable(window, true));
-    assert(c.SDL_SetRenderScale(renderer, scale, scale));
+    assert(c.SDL_CreateWindowAndRenderer(
+        "examples/CATEGORY/NAME",
+        640,
+        480,
+        c.SDL_WINDOW_RESIZABLE | c.SDL_WINDOW_HIGH_PIXEL_DENSITY,
+        &window,
+        &renderer,
+    ));
+    scale = c.SDL_GetWindowPixelDensity(window);
 
+    assert(c.SDL_SetHint(c.SDL_HINT_AUDIO_DISK_INPUT_FILE, "waitevent"));
+
+    // SDL_ttf: load font
+    assert(c.TTF_Init());
+    font = c.TTF_OpenFontIO(c.SDL_IOFromConstMem(noto_sans, noto_sans.len), true, 20.0 * scale);
+    assert(font != null);
+    c.TTF_SetFontHinting(font, c.TTF_HINTING_LIGHT);
+
+    // Timer for FPS display
     frame_timer = std.time.Timer.start() catch unreachable;
 
     return c.SDL_APP_CONTINUE; // carry on with the program!
@@ -72,8 +95,8 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
 
     const root = c.YGNodeNew();
     c.YGNodeStyleSetFlexDirection(root, c.YGFlexDirectionRow);
-    c.YGNodeStyleSetWidth(root, @as(f32, @floatFromInt(window_w)) / @as(f32, @floatFromInt(scale)));
-    c.YGNodeStyleSetHeight(root, @as(f32, @floatFromInt(window_h)) / @as(f32, @floatFromInt(scale)));
+    c.YGNodeStyleSetWidth(root, @as(f32, @floatFromInt(window_w)) * scale);
+    c.YGNodeStyleSetHeight(root, @as(f32, @floatFromInt(window_h)) * scale);
 
     const child0 = c.YGNodeNew();
     c.YGNodeStyleSetFlexGrow(child0, 1.0);
@@ -99,7 +122,14 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     assert(c.SDL_SetRenderDrawColor(renderer, 100, 0, 0, c.SDL_ALPHA_OPAQUE));
     assert(c.SDL_RenderClear(renderer));
 
-    assert(c.SDL_SetRenderDrawColor(renderer, 0, 0, 100, 255));
+    const child0color = c.SDL_Color{ .r = 255, .g = 255, .b = 255, .a = 255 };
+    assert(c.SDL_SetRenderDrawColor(
+        renderer,
+        child0color.r,
+        child0color.g,
+        child0color.b,
+        child0color.a,
+    ));
     assert(c.SDL_RenderFillRect(renderer, &c.SDL_FRect{
         .h = c.YGNodeLayoutGetHeight(child0),
         .w = c.YGNodeLayoutGetWidth(child0),
@@ -135,6 +165,7 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
         std.fmt.bufPrintZ(&buf, "text2: x={d}, y={d}", .{ text2_x, text2_y }) catch unreachable,
     ));
 
+    assert(c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255));
     assert(c.SDL_RenderDebugText(
         renderer,
         0,
@@ -144,16 +175,81 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     assert(c.SDL_RenderDebugText(
         renderer,
         0,
-        10,
+        10 * scale,
         std.fmt.bufPrintZ(&buf, "Frame time: {d}us", .{frame_time_ns / 1000}) catch unreachable,
     ));
 
     assert(c.SDL_RenderDebugText(
         renderer,
         0,
-        20,
+        20 * scale,
         std.fmt.bufPrintZ(&buf, "Window size: {d}x{d}", .{ window_w, window_h }) catch unreachable,
     ));
+
+    var major: c_int = 0;
+    var minor: c_int = 0;
+    var patch: c_int = 0;
+    c.TTF_GetFreeTypeVersion(&major, &minor, &patch);
+    assert(c.SDL_RenderDebugText(
+        renderer,
+        0,
+        30 * scale,
+        std.fmt.bufPrintZ(&buf, "Freetype: {d}.{d}.{d}", .{ major, minor, patch }) catch unreachable,
+    ));
+    c.TTF_GetHarfBuzzVersion(&major, &minor, &patch);
+    assert(c.SDL_RenderDebugText(
+        renderer,
+        150,
+        30 * scale,
+        std.fmt.bufPrintZ(&buf, "Harfbuzz: {d}.{d}.{d}", .{ major, minor, patch }) catch unreachable,
+    ));
+
+    assert(c.SDL_RenderDebugText(
+        renderer,
+        0,
+        40 * scale,
+        std.fmt.bufPrintZ(&buf, "Display scale: {d}", .{c.SDL_GetWindowDisplayScale(window)}) catch unreachable,
+    ));
+    assert(c.SDL_RenderDebugText(
+        renderer,
+        0,
+        50 * scale,
+        std.fmt.bufPrintZ(&buf, "Pixel density: {d}", .{c.SDL_GetWindowPixelDensity(window)}) catch unreachable,
+    ));
+    assert(c.SDL_RenderDebugText(
+        renderer,
+        0,
+        60 * scale,
+        std.fmt.bufPrintZ(
+            &buf,
+            "Display content scale: {d}",
+            .{c.SDL_GetDisplayContentScale(c.SDL_GetDisplayForWindow(window))},
+        ) catch unreachable,
+    ));
+
+    const text = "Một hai ba bốn năm sáu bẩy tám chín mười. Kerning? QyTyA";
+    // Draw text using SDL_ttf:
+    surface = c.TTF_RenderText_Blended_Wrapped(
+        font.?,
+        text,
+        text.len,
+        c.SDL_Color{ .r = 0, .g = 0, .b = 0, .a = c.SDL_ALPHA_OPAQUE },
+        @intFromFloat(c.YGNodeLayoutGetWidth(child0)),
+    );
+    if (surface) |sf| {
+        texture = c.SDL_CreateTextureFromSurface(renderer, sf);
+        c.SDL_DestroySurface(sf);
+    } else {
+        return c.SDL_APP_FAILURE;
+    }
+    if (texture == null) {
+        c.SDL_Log("Couldn't create text: %s\n", c.SDL_GetError());
+        return c.SDL_APP_FAILURE;
+    }
+
+    var text_dst = c.SDL_FRect{ .x = 0, .y = 65 * scale };
+    assert(c.SDL_GetTextureSize(texture, &text_dst.w, &text_dst.h));
+    assert(c.SDL_RenderTexture(renderer, texture, null, &text_dst));
 
     assert(c.SDL_RenderPresent(renderer));
 
