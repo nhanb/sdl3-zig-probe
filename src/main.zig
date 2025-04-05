@@ -14,6 +14,8 @@ const c = @cImport({
 
 const noto_sans = @embedFile("NotoSans-Regular.ttf");
 const inter_variable = @embedFile("InterVariable.ttf");
+const inter = @embedFile("Inter-Regular.otf");
+const nebula_sans = @embedFile("NebulaSans-Book.ttf");
 
 var scale: f32 = undefined;
 
@@ -21,7 +23,6 @@ var scale: f32 = undefined;
 var window: ?*c.SDL_Window = null;
 var renderer: ?*c.SDL_Renderer = null;
 var texture: ?*c.SDL_Texture = null;
-var font: ?*c.TTF_Font = null;
 var surface: ?*c.SDL_Surface = null;
 
 var frame_timer: std.time.Timer = undefined;
@@ -82,18 +83,6 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     const fps = 1_000_000_000 / frame_time_ns;
 
     scale = c.SDL_GetWindowDisplayScale(window);
-
-    // SDL_ttf: load font
-    assert(c.TTF_Init());
-    font = c.TTF_OpenFontIO(
-        //c.SDL_IOFromConstMem(noto_sans, noto_sans.len),
-        c.SDL_IOFromConstMem(inter_variable, inter_variable.len),
-        true,
-        16.0 * scale,
-    );
-    assert(font != null);
-    c.TTF_SetFontHinting(font, c.TTF_HINTING_LIGHT);
-    c.TTF_SetFontKerning(font, true);
 
     // 1. Calculate layout
 
@@ -235,33 +224,52 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
         ) catch unreachable,
     ));
 
-    const text =
-        \\Một hai ba bốn năm sáu bẩy tám chín mười. Kerning? QyTyA
-        \\Home Desktop Documents Downloads Music Videos
-        \\My Computer
-    ;
-    // Draw text using SDL_ttf:
-    surface = c.TTF_RenderText_Blended_Wrapped(
-        font.?,
-        text,
-        text.len,
-        c.SDL_Color{ .r = 0, .g = 0, .b = 0, .a = c.SDL_ALPHA_OPAQUE },
-        @intFromFloat(c.YGNodeLayoutGetWidth(child0)),
-    );
-    if (surface) |sf| {
-        texture = c.SDL_CreateTextureFromSurface(renderer, sf);
-        c.SDL_DestroySurface(sf);
-    } else {
-        return c.SDL_APP_FAILURE;
-    }
-    if (texture == null) {
-        c.SDL_Log("Couldn't create text: %s\n", c.SDL_GetError());
-        return c.SDL_APP_FAILURE;
-    }
+    // SDL_ttf: load font
+    inline for (.{
+        c.TTF_HINTING_LIGHT,
+        c.TTF_HINTING_LIGHT_SUBPIXEL,
+        c.TTF_HINTING_NORMAL,
+        c.TTF_HINTING_NONE,
+    }, 0..) |hint, i| {
+        assert(c.TTF_Init());
+        const font = c.TTF_OpenFontIO(
+            c.SDL_IOFromConstMem(inter_variable, inter_variable.len),
+            true,
+            16 * scale,
+        );
+        assert(font != null);
+        c.TTF_SetFontHinting(font, hint);
+        c.TTF_SetFontKerning(font, true);
 
-    var text_dst = c.SDL_FRect{ .x = 0, .y = 65 };
-    assert(c.SDL_GetTextureSize(texture, &text_dst.w, &text_dst.h));
-    assert(c.SDL_RenderTexture(renderer, texture, null, &text_dst));
+        const text =
+            \\Một hai ba bốn năm sáu bẩy tám chín mười. Kerning? QyTyA
+            \\Home Desktop Documents Downloads Music Videos My Computer
+            \\Stanley Kubrick was an American film director, screenwriter, and producer of many films
+        ;
+
+        // Draw text using SDL_ttf:
+        surface = c.TTF_RenderText_Blended_Wrapped(
+            font.?,
+            text,
+            text.len,
+            c.SDL_Color{ .r = 0, .g = 0, .b = 0, .a = c.SDL_ALPHA_OPAQUE },
+            @intFromFloat(c.YGNodeLayoutGetWidth(child0)),
+        );
+        if (surface) |sf| {
+            texture = c.SDL_CreateTextureFromSurface(renderer, sf);
+            c.SDL_DestroySurface(sf);
+        } else {
+            return c.SDL_APP_FAILURE;
+        }
+        if (texture == null) {
+            c.SDL_Log("Couldn't create text: %s\n", c.SDL_GetError());
+            return c.SDL_APP_FAILURE;
+        }
+
+        var text_dst = c.SDL_FRect{ .x = 0, .y = 65 + 140 * i };
+        assert(c.SDL_GetTextureSize(texture, &text_dst.w, &text_dst.h));
+        assert(c.SDL_RenderTexture(renderer, texture, null, &text_dst));
+    }
 
     assert(c.SDL_RenderPresent(renderer));
 
