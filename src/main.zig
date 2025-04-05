@@ -13,6 +13,7 @@ const c = @cImport({
 });
 
 const noto_sans = @embedFile("NotoSans-Regular.ttf");
+const inter_variable = @embedFile("InterVariable.ttf");
 
 var scale: f32 = undefined;
 
@@ -57,8 +58,6 @@ fn appInit(appstate: ?*?*anyopaque, argc: c_int, argv: ?[*:null]?[*:0]u8) callco
     ));
     //assert(c.SDL_MaximizeWindow(window));
 
-    c.TTF_SetFontHinting(font, c.TTF_HINTING_LIGHT);
-
     // Timer for FPS display
     frame_timer = std.time.Timer.start() catch unreachable;
 
@@ -87,11 +86,14 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     // SDL_ttf: load font
     assert(c.TTF_Init());
     font = c.TTF_OpenFontIO(
-        c.SDL_IOFromConstMem(noto_sans, noto_sans.len),
+        //c.SDL_IOFromConstMem(noto_sans, noto_sans.len),
+        c.SDL_IOFromConstMem(inter_variable, inter_variable.len),
         true,
-        20.0 * scale,
+        16.0 * scale,
     );
     assert(font != null);
+    c.TTF_SetFontHinting(font, c.TTF_HINTING_LIGHT);
+    c.TTF_SetFontKerning(font, true);
 
     // 1. Calculate layout
 
@@ -128,7 +130,7 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     assert(c.SDL_SetRenderDrawColor(renderer, 100, 0, 0, c.SDL_ALPHA_OPAQUE));
     assert(c.SDL_RenderClear(renderer));
 
-    const child0color = c.SDL_Color{ .r = 255, .g = 255, .b = 255, .a = 255 };
+    const child0color = c.SDL_Color{ .r = 239, .g = 240, .b = 241, .a = 255 };
     assert(c.SDL_SetRenderDrawColor(
         renderer,
         child0color.r,
@@ -233,7 +235,11 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
         ) catch unreachable,
     ));
 
-    const text = "Một hai ba bốn năm sáu bẩy tám chín mười. Kerning? QyTyA";
+    const text =
+        \\Một hai ba bốn năm sáu bẩy tám chín mười. Kerning? QyTyA
+        \\Home Desktop Documents Downloads Music Videos
+        \\My Computer
+    ;
     // Draw text using SDL_ttf:
     surface = c.TTF_RenderText_Blended_Wrapped(
         font.?,
