@@ -50,7 +50,7 @@ fn appInit(appstate: ?*?*anyopaque, argc: c_int, argv: ?[*:null]?[*:0]u8) callco
     assert(c.SDL_SetHint(c.SDL_HINT_MAIN_CALLBACK_RATE, "waitevent"));
     //assert(c.SDL_SetHint(c.SDL_HINT_CPU_FEATURE_MASK, "-all"));
     assert(c.SDL_CreateWindowAndRenderer(
-        "examples/CATEGORY/NAME",
+        "2x Text Shaping",
         800,
         600,
         c.SDL_WINDOW_RESIZABLE | c.SDL_WINDOW_HIGH_PIXEL_DENSITY,
@@ -235,7 +235,7 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
         const font = c.TTF_OpenFontIO(
             c.SDL_IOFromConstMem(inter_variable, inter_variable.len),
             true,
-            16 * scale,
+            16 * 2 * scale,
         );
         assert(font != null);
         c.TTF_SetFontHinting(font, hint);
@@ -253,7 +253,7 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
             text,
             text.len,
             c.SDL_Color{ .r = 0, .g = 0, .b = 0, .a = c.SDL_ALPHA_OPAQUE },
-            @intFromFloat(c.YGNodeLayoutGetWidth(child0)),
+            @intFromFloat(c.YGNodeLayoutGetWidth(child0) * 2),
         );
         if (surface) |sf| {
             texture = c.SDL_CreateTextureFromSurface(renderer, sf);
@@ -268,6 +268,8 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
 
         var text_dst = c.SDL_FRect{ .x = 0, .y = 65 + 140 * scale * i };
         assert(c.SDL_GetTextureSize(texture, &text_dst.w, &text_dst.h));
+        text_dst.w /= 2;
+        text_dst.h /= 2;
         assert(c.SDL_RenderTexture(renderer, texture, null, &text_dst));
     }
 
