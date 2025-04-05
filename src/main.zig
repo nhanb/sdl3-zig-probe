@@ -266,7 +266,7 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
             return c.SDL_APP_FAILURE;
         }
 
-        var text_dst = c.SDL_FRect{ .x = 0, .y = 65 + 140 * i };
+        var text_dst = c.SDL_FRect{ .x = 0, .y = 65 + 140 * scale * i };
         assert(c.SDL_GetTextureSize(texture, &text_dst.w, &text_dst.h));
         assert(c.SDL_RenderTexture(renderer, texture, null, &text_dst));
     }
