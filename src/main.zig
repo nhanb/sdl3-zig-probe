@@ -46,22 +46,17 @@ fn appInit(appstate: ?*?*anyopaque, argc: c_int, argv: ?[*:null]?[*:0]u8) callco
     // SDL init boilerplate
     assert(c.SDL_Init(c.SDL_INIT_VIDEO));
     assert(c.SDL_SetHint(c.SDL_HINT_MAIN_CALLBACK_RATE, "waitevent"));
+    //assert(c.SDL_SetHint(c.SDL_HINT_CPU_FEATURE_MASK, "-all"));
     assert(c.SDL_CreateWindowAndRenderer(
         "examples/CATEGORY/NAME",
-        640,
-        480,
+        800,
+        600,
         c.SDL_WINDOW_RESIZABLE | c.SDL_WINDOW_HIGH_PIXEL_DENSITY,
         &window,
         &renderer,
     ));
-    scale = c.SDL_GetWindowPixelDensity(window);
+    //assert(c.SDL_MaximizeWindow(window));
 
-    assert(c.SDL_SetHint(c.SDL_HINT_AUDIO_DISK_INPUT_FILE, "waitevent"));
-
-    // SDL_ttf: load font
-    assert(c.TTF_Init());
-    font = c.TTF_OpenFontIO(c.SDL_IOFromConstMem(noto_sans, noto_sans.len), true, 20.0 * scale);
-    assert(font != null);
     c.TTF_SetFontHinting(font, c.TTF_HINTING_LIGHT);
 
     // Timer for FPS display
@@ -87,16 +82,27 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     const frame_time_ns = frame_timer.lap();
     const fps = 1_000_000_000 / frame_time_ns;
 
+    scale = c.SDL_GetWindowDisplayScale(window);
+
+    // SDL_ttf: load font
+    assert(c.TTF_Init());
+    font = c.TTF_OpenFontIO(
+        c.SDL_IOFromConstMem(noto_sans, noto_sans.len),
+        true,
+        20.0 * scale,
+    );
+    assert(font != null);
+
     // 1. Calculate layout
 
     var window_w: c_int = undefined;
     var window_h: c_int = undefined;
-    assert(c.SDL_GetWindowSize(window, &window_w, &window_h));
+    assert(c.SDL_GetWindowSizeInPixels(window, &window_w, &window_h));
 
     const root = c.YGNodeNew();
     c.YGNodeStyleSetFlexDirection(root, c.YGFlexDirectionRow);
-    c.YGNodeStyleSetWidth(root, @as(f32, @floatFromInt(window_w)) * scale);
-    c.YGNodeStyleSetHeight(root, @as(f32, @floatFromInt(window_h)) * scale);
+    c.YGNodeStyleSetWidth(root, @as(f32, @floatFromInt(window_w)));
+    c.YGNodeStyleSetHeight(root, @as(f32, @floatFromInt(window_h)));
 
     const child0 = c.YGNodeNew();
     c.YGNodeStyleSetFlexGrow(child0, 1.0);
@@ -175,14 +181,14 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     assert(c.SDL_RenderDebugText(
         renderer,
         0,
-        10 * scale,
+        10,
         std.fmt.bufPrintZ(&buf, "Frame time: {d}us", .{frame_time_ns / 1000}) catch unreachable,
     ));
 
     assert(c.SDL_RenderDebugText(
         renderer,
         0,
-        20 * scale,
+        20,
         std.fmt.bufPrintZ(&buf, "Window size: {d}x{d}", .{ window_w, window_h }) catch unreachable,
     ));
 
@@ -193,33 +199,33 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     assert(c.SDL_RenderDebugText(
         renderer,
         0,
-        30 * scale,
+        30,
         std.fmt.bufPrintZ(&buf, "Freetype: {d}.{d}.{d}", .{ major, minor, patch }) catch unreachable,
     ));
     c.TTF_GetHarfBuzzVersion(&major, &minor, &patch);
     assert(c.SDL_RenderDebugText(
         renderer,
         150,
-        30 * scale,
+        30,
         std.fmt.bufPrintZ(&buf, "Harfbuzz: {d}.{d}.{d}", .{ major, minor, patch }) catch unreachable,
     ));
 
     assert(c.SDL_RenderDebugText(
         renderer,
         0,
-        40 * scale,
+        40,
         std.fmt.bufPrintZ(&buf, "Display scale: {d}", .{c.SDL_GetWindowDisplayScale(window)}) catch unreachable,
     ));
     assert(c.SDL_RenderDebugText(
         renderer,
         0,
-        50 * scale,
+        50,
         std.fmt.bufPrintZ(&buf, "Pixel density: {d}", .{c.SDL_GetWindowPixelDensity(window)}) catch unreachable,
     ));
     assert(c.SDL_RenderDebugText(
         renderer,
         0,
-        60 * scale,
+        60,
         std.fmt.bufPrintZ(
             &buf,
             "Display content scale: {d}",
@@ -247,7 +253,7 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
         return c.SDL_APP_FAILURE;
     }
 
-    var text_dst = c.SDL_FRect{ .x = 0, .y = 65 * scale };
+    var text_dst = c.SDL_FRect{ .x = 0, .y = 65 };
     assert(c.SDL_GetTextureSize(texture, &text_dst.w, &text_dst.h));
     assert(c.SDL_RenderTexture(renderer, texture, null, &text_dst));
 
