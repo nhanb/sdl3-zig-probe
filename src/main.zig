@@ -22,8 +22,10 @@ var scale: f32 = undefined;
 // We will use this renderer to draw into this window every frame.
 var window: ?*c.SDL_Window = null;
 var renderer: ?*c.SDL_Renderer = null;
+
 var texture: ?*c.SDL_Texture = null;
 var surface: ?*c.SDL_Surface = null;
+var text_scale: f32 = 1;
 
 var frame_timer: std.time.Timer = undefined;
 
@@ -49,10 +51,11 @@ fn appInit(appstate: ?*?*anyopaque, argc: c_int, argv: ?[*:null]?[*:0]u8) callco
     assert(c.SDL_Init(c.SDL_INIT_VIDEO));
     assert(c.SDL_SetHint(c.SDL_HINT_MAIN_CALLBACK_RATE, "waitevent"));
     //assert(c.SDL_SetHint(c.SDL_HINT_CPU_FEATURE_MASK, "-all"));
+    var buf: [128]u8 = undefined;
     assert(c.SDL_CreateWindowAndRenderer(
-        "2x Text Shaping",
-        800,
-        600,
+        std.fmt.bufPrintZ(&buf, "{d}x Text Shaping", .{text_scale}) catch unreachable,
+        900,
+        700,
         c.SDL_WINDOW_RESIZABLE | c.SDL_WINDOW_HIGH_PIXEL_DENSITY,
         &window,
         &renderer,
@@ -71,8 +74,24 @@ fn appEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) callconv(.c) c.SDL_AppR
 
     switch (event.?.type) {
         c.SDL_EVENT_QUIT => return c.SDL_APP_SUCCESS,
-        else => return c.SDL_APP_CONTINUE,
+        c.SDL_EVENT_KEY_DOWN => {
+            switch (event.?.key.key) {
+                c.SDLK_UP => text_scale += 1,
+                c.SDLK_DOWN => if (text_scale > 1) {
+                    text_scale -= 1;
+                },
+                else => {},
+            }
+            var buf: [128]u8 = undefined;
+            assert(c.SDL_SetWindowTitle(
+                window,
+                std.fmt.bufPrintZ(&buf, "{d}x Text Shaping", .{text_scale}) catch unreachable,
+            ));
+        },
+        else => {},
     }
+
+    return c.SDL_APP_CONTINUE;
 }
 
 // This function runs once per frame, and is the heart of the program.
@@ -96,7 +115,7 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     c.YGNodeStyleSetHeight(root, @as(f32, @floatFromInt(window_h)));
 
     const child0 = c.YGNodeNew();
-    c.YGNodeStyleSetFlexGrow(child0, 1.0);
+    c.YGNodeStyleSetFlexGrow(child0, 2.0);
     c.YGNodeStyleSetMargin(child0, c.YGEdgeRight, 10.0);
     c.YGNodeInsertChild(root, child0, 0);
 
@@ -235,17 +254,24 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
         const font = c.TTF_OpenFontIO(
             c.SDL_IOFromConstMem(inter_variable, inter_variable.len),
             true,
-            16 * 2 * scale,
+            16 * text_scale * scale,
         );
         assert(font != null);
         c.TTF_SetFontHinting(font, hint);
         c.TTF_SetFontKerning(font, true);
 
         const text =
-            \\Một hai ba bốn năm sáu bẩy tám chín mười. Kerning? QyTyA
+            switch (hint) {
+                c.TTF_HINTING_LIGHT => "Light",
+                c.TTF_HINTING_LIGHT_SUBPIXEL => "Light_Subpixel",
+                c.TTF_HINTING_NORMAL => "Normal",
+                c.TTF_HINTING_NONE => "None",
+                else => unreachable,
+            } ++ ":\n" ++
+            \\Một bốn bẩy mười. Kerning? yTyA
             \\Home Desktop Documents Downloads Music Videos My Computer
             \\Stanley Kubrick was an American film director, screenwriter, and producer of many films
-        ;
+            ;
 
         // Draw text using SDL_ttf:
         surface = c.TTF_RenderText_Blended_Wrapped(
@@ -253,7 +279,7 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
             text,
             text.len,
             c.SDL_Color{ .r = 0, .g = 0, .b = 0, .a = c.SDL_ALPHA_OPAQUE },
-            @intFromFloat(c.YGNodeLayoutGetWidth(child0) * 2),
+            @intFromFloat(c.YGNodeLayoutGetWidth(child0) * text_scale),
         );
         if (surface) |sf| {
             texture = c.SDL_CreateTextureFromSurface(renderer, sf);
@@ -266,10 +292,10 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
             return c.SDL_APP_FAILURE;
         }
 
-        var text_dst = c.SDL_FRect{ .x = 0, .y = 65 + 140 * scale * i };
+        var text_dst = c.SDL_FRect{ .x = 0, .y = 85 + 140 * scale * i };
         assert(c.SDL_GetTextureSize(texture, &text_dst.w, &text_dst.h));
-        text_dst.w /= 2;
-        text_dst.h /= 2;
+        text_dst.w /= text_scale;
+        text_dst.h /= text_scale;
         assert(c.SDL_RenderTexture(renderer, texture, null, &text_dst));
     }
 
