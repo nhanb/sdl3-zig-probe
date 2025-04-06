@@ -18,14 +18,12 @@ Currently `SDL3_ttf` seems to [trigger UB][5], so we have to disable UBSan using
 zig build run -Doptimize=ReleaseFast
 
 # Or, to use system libraries:
-zig build run -fsys=sdl -fsys=freetype -fsys=harfbuzz -Doptimize=ReleaseFast
+zig build run -fsys=sdl -fsys=sdl_ttf -fsys=freetype -fsys=harfbuzz -Doptimize=ReleaseFast
 ```
 
-The following deps are currently not packaged for Arch Linux, so they're always
-compiled from source & statically linked:
-
-- `Yoga`: <https://www.yogalayout.dev/>
-- `SDL3_ttf`: <https://github.com/libsdl-org/SDL_ttf>
+[Yoga](https://www.yogalayout.dev/) is currently not packaged for Arch Linux, so
+it's always compiled from source & statically linked. Actually `sdl3_ttf` isn't
+packaged either, but it's on AUR and probably gonna be official soon.
 
 # Runtime
 

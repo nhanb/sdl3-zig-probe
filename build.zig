@@ -34,6 +34,30 @@ pub fn build(b: *std.Build) void {
         exe_mod.linkLibrary(sdl_lib);
     }
 
+    // DEP: SDL3_ttf
+    if (b.systemIntegrationOption("sdl_ttf", .{ .default = false })) {
+        exe_mod.linkSystemLibrary("SDL3_ttf", .{});
+    } else {
+        const sdl_ttf_dep = b.dependency("sdl_ttf", .{
+            .target = target,
+            .optimize = optimize,
+        });
+        exe.addIncludePath(sdl_ttf_dep.path("include"));
+        exe.addIncludePath(sdl_ttf_dep.path("src"));
+        exe.installHeadersDirectory(sdl_ttf_dep.path("include"), "", .{});
+        exe.addCSourceFiles(.{
+            .root = sdl_ttf_dep.path("src"),
+            .files = &.{
+                "SDL_gpu_textengine.c",
+                "SDL_hashtable.c",
+                "SDL_hashtable_ttf.c",
+                "SDL_renderer_textengine.c",
+                "SDL_surface_textengine.c",
+                "SDL_ttf.c",
+            },
+        });
+    }
+
     // DEP: freetype2
     if (b.systemIntegrationOption("freetype", .{ .default = false })) {
         exe_mod.linkSystemLibrary("freetype2", .{});
@@ -58,27 +82,6 @@ pub fn build(b: *std.Build) void {
         exe.addIncludePath(harfbuzz_dep.path("src"));
     }
     exe_mod.addCMacro("TTF_USE_HARFBUZZ", "1");
-
-    // DEP: SDL3_ttf
-    // TODO: use system SDL3_ttf when (if?) it lands on Arch
-    const sdl_ttf_dep = b.dependency("sdl_ttf", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    exe.addIncludePath(sdl_ttf_dep.path("include"));
-    exe.addIncludePath(sdl_ttf_dep.path("src"));
-    exe.installHeadersDirectory(sdl_ttf_dep.path("include"), "", .{});
-    exe.addCSourceFiles(.{
-        .root = sdl_ttf_dep.path("src"),
-        .files = &.{
-            "SDL_gpu_textengine.c",
-            "SDL_hashtable.c",
-            "SDL_hashtable_ttf.c",
-            "SDL_renderer_textengine.c",
-            "SDL_surface_textengine.c",
-            "SDL_ttf.c",
-        },
-    });
 
     // TODO: use system Yoga when (if?) it lands on Arch
     {
