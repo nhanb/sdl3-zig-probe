@@ -110,24 +110,29 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
     assert(c.SDL_GetWindowSizeInPixels(window, &window_w, &window_h));
 
     const root = c.YGNodeNew();
+    defer c.YGNodeFree(root);
     c.YGNodeStyleSetFlexDirection(root, c.YGFlexDirectionRow);
     c.YGNodeStyleSetWidth(root, @as(f32, @floatFromInt(window_w)));
     c.YGNodeStyleSetHeight(root, @as(f32, @floatFromInt(window_h)));
 
     const child0 = c.YGNodeNew();
+    defer c.YGNodeFree(child0);
     c.YGNodeStyleSetFlexGrow(child0, 2.0);
     c.YGNodeStyleSetMargin(child0, c.YGEdgeRight, 10.0);
     c.YGNodeInsertChild(root, child0, 0);
 
     const child1 = c.YGNodeNew();
+    defer c.YGNodeFree(child1);
     c.YGNodeStyleSetFlexGrow(child1, 1.0);
     c.YGNodeInsertChild(root, child1, 1);
 
     const text1 = c.YGNodeNew();
+    defer c.YGNodeFree(text1);
     c.YGNodeStyleSetFlexGrow(text1, 1.0);
     c.YGNodeInsertChild(child1, text1, 0);
 
     const text2 = c.YGNodeNew();
+    defer c.YGNodeFree(text2);
     c.YGNodeStyleSetFlexGrow(text2, 1.0);
     c.YGNodeInsertChild(child1, text2, 1);
 
@@ -243,20 +248,21 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
         ) catch unreachable,
     ));
 
-    // SDL_ttf: load font
+    // SDL_ttf
+    assert(c.TTF_Init());
     inline for (.{
         c.TTF_HINTING_LIGHT,
         c.TTF_HINTING_LIGHT_SUBPIXEL,
         c.TTF_HINTING_NORMAL,
         c.TTF_HINTING_NONE,
     }, 0..) |hint, i| {
-        assert(c.TTF_Init());
         const font = c.TTF_OpenFontIO(
             c.SDL_IOFromConstMem(inter_variable, inter_variable.len),
             true,
             16 * text_scale * scale,
         );
         assert(font != null);
+        defer c.TTF_CloseFont(font);
         c.TTF_SetFontHinting(font, hint);
         c.TTF_SetFontKerning(font, true);
 
@@ -274,29 +280,13 @@ fn appIterate(appstate: ?*anyopaque) callconv(.c) c.SDL_AppResult {
             ;
 
         // Draw text using SDL_ttf:
-        surface = c.TTF_RenderText_Blended_Wrapped(
-            font.?,
-            text,
-            text.len,
-            c.SDL_Color{ .r = 0, .g = 0, .b = 0, .a = c.SDL_ALPHA_OPAQUE },
-            @intFromFloat(c.YGNodeLayoutGetWidth(child0) * text_scale),
-        );
-        if (surface) |sf| {
-            texture = c.SDL_CreateTextureFromSurface(renderer, sf);
-            c.SDL_DestroySurface(sf);
-        } else {
-            return c.SDL_APP_FAILURE;
-        }
-        if (texture == null) {
-            c.SDL_Log("Couldn't create text: %s\n", c.SDL_GetError());
-            return c.SDL_APP_FAILURE;
-        }
-
-        var text_dst = c.SDL_FRect{ .x = 0, .y = 85 + 140 * scale * i };
-        assert(c.SDL_GetTextureSize(texture, &text_dst.w, &text_dst.h));
-        text_dst.w /= text_scale;
-        text_dst.h /= text_scale;
-        assert(c.SDL_RenderTexture(renderer, texture, null, &text_dst));
+        const engine = c.TTF_CreateRendererTextEngine(renderer);
+        defer c.TTF_DestroyRendererTextEngine(engine);
+        const ttf_text = c.TTF_CreateText(engine, font, text, text.len);
+        defer c.TTF_DestroyText(ttf_text);
+        assert(c.TTF_SetTextColor(ttf_text, 0, 0, 0, 255));
+        assert(c.TTF_SetTextWrapWidth(ttf_text, @intFromFloat(c.YGNodeLayoutGetWidth(child0))));
+        assert(c.TTF_DrawRendererText(ttf_text, 0, 85 + 140 * scale * i));
     }
 
     assert(c.SDL_RenderPresent(renderer));
