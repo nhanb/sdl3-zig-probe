@@ -68,6 +68,32 @@ fn appInit(appstate: ?*?*anyopaque, argc: c_int, argv: ?[*:null]?[*:0]u8) callco
     return c.SDL_APP_CONTINUE; // carry on with the program!
 }
 
+fn dialogFileCallback(userdata: ?*anyopaque, filelist: [*c]const [*c]const u8, filter: c_int) callconv(.C) void {
+    _ = userdata;
+    _ = filter;
+
+    if (filelist == null) {
+        std.debug.print(">> error: {s}", .{c.SDL_GetError()});
+        return;
+    }
+
+    if (filelist[0] == null) {
+        std.debug.print(">> no file chosen\n", .{});
+        return;
+    }
+
+    var i: usize = 0;
+    while (true) {
+        const file = filelist[i];
+        if (file == null) {
+            std.debug.print(">> filelist[{d}] is null. Aborted.\n", .{i});
+            return;
+        }
+        std.debug.print(">> found file: {s}\n", .{file});
+        i += 1;
+    }
+}
+
 // This function runs when a new event (mouse input, keypresses, etc) occurs.
 fn appEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) callconv(.c) c.SDL_AppResult {
     _ = appstate;
@@ -79,6 +105,25 @@ fn appEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) callconv(.c) c.SDL_AppR
                 c.SDLK_UP => text_scale += 1,
                 c.SDLK_DOWN => if (text_scale > 1) {
                     text_scale -= 1;
+                },
+                c.SDLK_O => {
+                    if (event.?.key.mod & c.SDL_KMOD_CTRL != 0) {
+                        // ctrl + o to show "Open File" dialog
+                        const filters = &[_]c.SDL_DialogFileFilter{
+                            .{ .name = "MP4 Videos", .pattern = "mp4" },
+                            .{ .name = "JPEG Images", .pattern = "jpg;jpeg" },
+                            .{ .name = "All Files", .pattern = "*" },
+                        };
+                        c.SDL_ShowOpenFileDialog(
+                            &dialogFileCallback,
+                            null,
+                            window,
+                            filters,
+                            filters.len,
+                            "",
+                            true,
+                        );
+                    }
                 },
                 else => {},
             }
